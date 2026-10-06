@@ -33,3 +33,11 @@ def metrics(po,inv):
 def capacity(volume,rate,eligible,adoption,minutes,hourly):
     hours=volume*rate*eligible*adoption*minutes/60
     return hours,hours*hourly
+
+
+def compare_case(row,receipts):
+    relevant=receipts.loc[receipts.PO_ID.eq(row.PO_ID) & receipts.ReceiptDate.le(row.InvoiceDate)]
+    received=float(relevant.ReceivedQty.sum())
+    delta=float(row.InvoiceUnitPriceUSD-row.UnitPriceUSD)
+    return {'has_receipt':not relevant.empty,'received_qty':received,'price_delta':delta,
+            'quantity_delta':float(row.InvoiceQty)-received,'price_variance':delta*float(row.InvoiceQty)}
