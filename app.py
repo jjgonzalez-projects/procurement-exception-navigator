@@ -130,8 +130,25 @@ with t3:
     st.caption('Volume × exception rate × eligibility × adoption × minutes ÷ 60. Capacity value is not cash savings or ROI; implementation and operating costs are excluded. Filters above do not change this independent scenario.')
     st.markdown('### How to validate the pilot')
     st.write('Measure manual minutes per exception, time to first owner assignment, closure time, incorrect routing and cases over SLA. Test all exception types, duplicate reruns, missing owners and failed notifications before expansion.')
-with st.expander('Data, definitions and relevance to the role'):
-    st.write('500 synthetic POs, 483 invoices, 490 receipt records and 14 fictional suppliers across seven buying countries. One line per PO and at most one invoice and receipt per PO. USD values exclude taxes and FX. Exception classifications are seeded input labels. The case view calculates price and quantity differences from the records; document completeness and production matching rules are outside scope.')
-    st.write('The case is aligned with the supplied Procurement Digital Innovation PM description: global Procure-to-Pay, stakeholder coordination, data-driven decisions and practical automation. It demonstrates an approach, not knowledge of Nestlé internal systems.')
-    st.markdown('Public context: [Nestlé supply-chain disclosures](https://www.nestle.com/sustainability/responsible-sourcing/supply-chain-disclosure) · [Nestlé annual reporting](https://www.nestle.com/investors/annual-report). These sources provide context only; they do not supply the transactions or performance figures in this demo.')
+with st.expander('About this demo'):
+    st.markdown('### Sample data, realistic procurement decisions')
+    st.write('All transactions and suppliers are fictional. The demo shows how a procurement team could review invoice issues and decide what to do next.')
+    a,b,c,d=st.columns(4)
+    a.metric('Purchase orders','500')
+    b.metric('Invoices','483')
+    c.metric('Suppliers','14')
+    d.metric('Countries','7')
+    st.caption('Snapshot: 30 September 2026 · Currency: USD')
+    left,right=st.columns(2)
+    with left:
+        st.markdown('**What you can explore**')
+        st.markdown('- Purchasing by country, category and supplier.\n- Invoice differences and proposed owners.\n- A follow-up simulation and estimated time benefit.')
+    with right:
+        st.markdown('**Why it matters**')
+        st.write('The case connects procurement, data analysis and process improvement: identify an issue, assign responsibility and test a practical solution.')
+    st.markdown('**Public background reading**')
+    st.markdown('[Nestlé supply-chain disclosures](https://www.nestle.com/sustainability/responsible-sourcing/supply-chain-disclosure) · [Nestlé annual reporting](https://www.nestle.com/investors/annual-report)')
+    st.caption('Background sources only. This independent project uses no Nestlé internal data and is not affiliated with Nestlé.')
+    with st.expander('Calculation details and limits'):
+        st.markdown('- 490 receipt records; one line per purchase order and at most one receipt and invoice per order.\n- Amounts exclude taxes and currency conversion.\n- Exception labels are scenario inputs. Price and quantity checks are calculated from the records.\n- Document completeness is not verified. Some scenario labels need validation against the calculated evidence.\n- Routing is simulated; payments, notifications and ERP connections are not implemented.\n- Capacity estimates use adjustable assumptions; they are not measured savings.')
 st.caption('Juan José González · Connecting operations, finance & technology')
