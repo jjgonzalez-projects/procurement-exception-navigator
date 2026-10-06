@@ -16,17 +16,28 @@ st.caption('Independent portfolio project by Juan José González, PMP • Synth
 @st.cache_data
 def get_data(): return load_data()
 po,inv,receipts=get_data()
-st.subheader('What does this demo solve?')
-st.write('When an invoice differs from a purchase order or recorded receipt, procurement and finance need to understand the discrepancy, identify an owner and follow up. This demo turns those records into a focused action queue.')
-a,b,c=st.columns(3)
-a.markdown('**1 · Understand purchasing**  \nSee purchase commitments and the share of invoices requiring review. Filter by country, category and supplier.')
-b.markdown('**2 · Review a case**  \nCompare the order, receipt and invoice. See a proposed owner and simulate routing the case.')
-c.markdown('**3 · Assess the improvement**  \nAdjust assumptions to estimate potential capacity and define how to validate a pilot.')
-with st.expander('How to use the demo and interpret the results'):
-    st.write('Start with all filters set to All. Open Review a case and inspect INV452 for a calculated price difference or INV271 to validate a seeded quantity label against the records. Then open Assess the improvement and change the minutes avoided per case.')
-    st.write('Figures describe a synthetic demonstration at 30 Sep 2026. A seeded exception label is a scenario input; calculated price and quantity checks provide supporting evidence and may reveal additional differences. This is not a production matching engine.')
-    st.write('Routing is a simulation. No notifications are sent, no ERP is connected and no payment is authorized.')
-st.markdown('#### Explore the purchasing scope')
+st.subheader('Start with one simple example')
+st.write('A supplier sends an invoice at a higher price than the buyer agreed. The team needs to see the difference and decide who should review it.')
+example=inv.loc[inv.Invoice_ID.eq('INV452')].iloc[0]
+example_evidence=compare_case(example,receipts)
+with st.container(border=True):
+    st.markdown('### The agreed price and the billed price do not match')
+    a,b,c=st.columns(3)
+    a.metric('Agreed price · per unit',f"${example.UnitPriceUSD:,.2f}")
+    b.metric('Billed price · per unit',f"${example.InvoiceUnitPriceUSD:,.2f}")
+    c.metric('Difference · per unit',f"${example_evidence['price_delta']:,.2f}")
+    st.write(f"For {example.InvoiceQty:,.0f} invoiced units, the price difference totals **${example_evidence['price_variance']:,.2f}**. The buyer should check the agreement and request a correction or validate an approved price change.")
+    st.caption('Fictional example invoice INV452. This difference needs review; it is not confirmed savings or an overpayment.')
+    if st.button('Show the proposed next step',key='guided_example',type='primary'):
+        st.session_state['example_open']=True
+    if st.session_state.get('example_open'):
+        st.success(f"Proposed owner: {example.Owner}. Check the agreed price, contact the supplier if a correction is needed, and record the outcome.")
+        st.write('A future automated workflow could assign the case and track follow-up. This button demonstrates that decision; it sends no notification.')
+with st.expander('What can I explore next?'):
+    st.markdown('**1. Purchasing overview:** see how much was ordered and how many invoices need review.\n\n**2. Invoice review:** choose any available invoice, compare its records and see the proposed owner.\n\n**3. Improvement estimate:** change assumptions to explore how much manual follow-up time could be reduced.')
+    st.write('INV means invoice, the supplier’s bill. A purchase order records what the buyer ordered and the agreed price. A receipt records what was delivered or accepted.')
+    st.caption('All data are fictional. The example above stays fixed; the filters below apply to the analysis tabs. No ERP connection or payment authorization is implemented.')
+st.markdown('#### Explore all demo records')
 a,b,c=st.columns(3)
 country=a.selectbox('Buying country',['All']+sorted(po.BuyingCountry.unique()),key='country_filter')
 country_po=po if country=='All' else po.loc[po.BuyingCountry.eq(country)]
@@ -42,10 +53,10 @@ supplier=c.selectbox('Supplier',supplier_options,key='supplier_filter')
 st.caption('Categories follow the selected country; suppliers follow country and category. Incompatible selections reset to All.')
 p,i=filter_data(po,inv,country,category,supplier)
 m=metrics(p,i)
-t1,t2,t3=st.tabs(['01 · Understand purchasing','02 · Review a case','03 · Assess the improvement'])
+t1,t2,t3=st.tabs(['Purchasing overview','Invoice review','Improvement estimate'])
 with t1:
     cols=st.columns(4)
-    for col,label,value in zip(cols,['Purchase orders','Ordered value · USD','Invoices with exceptions','Open exceptions'],[f'{m["orders"]:,}',f'${m["ordered"]/1e6:.2f}m',(f'{m["exception_rate"]:.1%}' if m['invoices'] else 'N/A'),str(m['open_count'])]): col.metric(label,value)
+    for col,label,value in zip(cols,['Purchase orders','Ordered value · USD','Invoices needing review · %','Unresolved cases'],[f'{m["orders"]:,}',f'${m["ordered"]/1e6:.2f}m',(f'{m["exception_rate"]:.1%}' if m['invoices'] else 'N/A'),str(m['open_count'])]): col.metric(label,value)
     st.caption('Purchase orders = order count; ordered value = purchase commitments; open exceptions = unresolved invoice cases. Historical Exception rate includes resolved and unresolved exceptions in the filtered invoice cohort.')
     left,right=st.columns(2)
     with left:
@@ -67,7 +78,7 @@ with t2:
         st.success('No unresolved exceptions in this selection.')
     else:
         st.dataframe(queue[['Invoice_ID','ExceptionType','AgeDays','InvoiceValueUSD','Owner','Priority']].rename(columns={'Invoice_ID':'Invoice','ExceptionType':'Exception','AgeDays':'Age · days','InvoiceValueUSD':'Value · USD','Owner':'Proposed owner'}),hide_index=True,width='stretch')
-        selected=st.selectbox('Inspect a case',queue.Invoice_ID.tolist())
+        selected=st.selectbox('Choose an invoice to review',queue.Invoice_ID.tolist(),format_func=lambda invoice_id: f"{invoice_id} — {queue.loc[queue.Invoice_ID.eq(invoice_id), 'ExceptionType'].iloc[0]}")
         row=queue.loc[queue.Invoice_ID.eq(selected)].iloc[0]
         st.markdown('### Order → receipt → invoice evidence')
         evidence=compare_case(row,receipts)
@@ -77,9 +88,9 @@ with t2:
             'Unit price · USD':[f"${row.UnitPriceUSD:,.2f}",'Not applicable',f"${row.InvoiceUnitPriceUSD:,.2f}"]
         }),hide_index=True,width='stretch')
         e1,e2,e3=st.columns(3)
-        e1.metric('Invoice minus PO price · USD/unit',f"${evidence['price_delta']:,.2f}")
-        e2.metric('Invoice minus received · units',f"{evidence['quantity_delta']:,.0f}" if evidence['has_receipt'] else 'N/A')
-        e3.metric('Price variance × invoiced units · USD',f"${evidence['price_variance']:,.2f}")
+        e1.metric('Billed minus agreed price · USD/unit',f"${evidence['price_delta']:,.2f}")
+        e2.metric('Billed minus received quantity · units',f"{evidence['quantity_delta']:,.0f}" if evidence['has_receipt'] else 'N/A')
+        e3.metric('Total price difference · USD',f"${evidence['price_variance']:,.2f}")
         findings=[]
         if abs(evidence['price_delta'])>.005: findings.append('Unit price differs from the PO price.')
         if not evidence['has_receipt']: findings.append('No receipt recorded by invoice date; verify receiving evidence.')
@@ -108,8 +119,8 @@ with t2:
                 st.caption('No message sent and no source record changed. A production flow would need duplicate prevention, an audit log, approved owners and failure handling.')
     st.download_button('Download filtered action queue',queue.to_csv(index=False).encode(),'exception_queue.csv','text/csv')
 with t3:
-    st.subheader('A small, testable improvement')
-    st.write('Hypothesis: assigning ownership automatically could reduce manual follow-up and shorten the time to first action. Validate this with procurement, accounts payable, receiving and IT.')
+    st.subheader('How could automatic assignment help?')
+    st.write('Today an analyst may need to find the right owner and chase an update. Automatic assignment could reduce that work. The estimate below explores this possibility; a pilot would measure the actual result.')
     with st.expander('Proposed workflow',expanded=True):
         st.write('Daily exception feed → check for an existing case → assign owner by exception type → track status → escalate at an agreed SLA → human validates correction and closure.')
         st.caption('Proposed Power Automate pilot. Not deployed. No automatic payment release. The 10-day threshold is a demo assumption, not company policy.')
